@@ -15,6 +15,9 @@ import math
 import random
 from typing import Callable
 
+# Easing function midpoint - transition point between ease-in and ease-out phases
+_EASING_MIDPOINT = 0.5
+
 
 def _binomial(n: int, k: int) -> float:
     """
@@ -45,7 +48,9 @@ def _bernstein_polynomial_point(t: float, i: int, n: int) -> float:
     return _binomial(n, i) * (t**i) * ((1 - t) ** (n - i))
 
 
-def _bernstein_polynomial(points: list[tuple[float, float]]) -> Callable[[float], tuple[float, float]]:
+def _bernstein_polynomial(
+    points: list[tuple[float, float]],
+) -> Callable[[float], tuple[float, float]]:
     """
     Create a function that evaluates a bezier curve at parameter t.
 
@@ -110,16 +115,9 @@ def _ease_out_circ(t: float) -> float:
     return math.sqrt(1 - t * t)
 
 
-def _ease_in_out_quad(t: float) -> float:
-    """Quadratic easing in/out - accelerate then decelerate."""
-    if t < 0.5:
-        return 2 * t * t
-    return -1 + (4 - 2 * t) * t
-
-
 def _ease_in_out_cubic(t: float) -> float:
     """Cubic easing in/out - stronger acceleration/deceleration."""
-    if t < 0.5:
+    if t < _EASING_MIDPOINT:
         return 4 * t * t * t
     t = 2 * t - 2
     return (t * t * t + 2) / 2
@@ -127,7 +125,7 @@ def _ease_in_out_cubic(t: float) -> float:
 
 def _ease_in_out_quart(t: float) -> float:
     """Quartic easing in/out - very strong acceleration/deceleration."""
-    if t < 0.5:
+    if t < _EASING_MIDPOINT:
         return 8 * t * t * t * t
     t -= 1
     return -(8 * t * t * t * t - 1)
@@ -135,7 +133,7 @@ def _ease_in_out_quart(t: float) -> float:
 
 def _ease_in_out_quint(t: float) -> float:
     """Quintic easing in/out - extremely strong acceleration/deceleration."""
-    if t < 0.5:
+    if t < _EASING_MIDPOINT:
         return 16 * t * t * t * t * t
     t = 2 * t - 2
     return (t * t * t * t * t + 2) / 2
@@ -152,14 +150,14 @@ def _ease_in_out_expo(t: float) -> float:
         return 0
     if t == 1:
         return 1
-    if t < 0.5:
+    if t < _EASING_MIDPOINT:
         return math.pow(2, 20 * t - 10) / 2
     return (2 - math.pow(2, -20 * t + 10)) / 2
 
 
 def _ease_in_out_circ(t: float) -> float:
     """Circular easing in/out - circular acceleration/deceleration."""
-    if t < 0.5:
+    if t < _EASING_MIDPOINT:
         return (1 - math.sqrt(1 - 4 * t * t)) / 2
     t = -2 * t + 2
     return (math.sqrt(1 - t * t) + 1) / 2
@@ -338,8 +336,7 @@ def apply_easing(
     Returns:
         Redistributed points with easing applied.
     """
-    if target_points < 2:
-        target_points = 2
+    target_points = max(target_points, 2)
 
     if easing_func is None:
         easing_func = _get_random_easing_function()
@@ -413,8 +410,10 @@ def generate_human_mouse_trajectory(
         distortion_stdev: Standard deviation for distortion. If None, random (0.85-1.1).
         distortion_frequency: Probability of distortion (0-1). If None, random (0.25-0.7).
         target_points: Number of points in final trajectory. If None, random (35-80, weighted).
-        offset_boundary_x: Horizontal boundary for control points. If None, random (20-100, weighted).
-        offset_boundary_y: Vertical boundary for control points. If None, random (20-100, weighted).
+        offset_boundary_x: Horizontal boundary for control points.
+                          If None, random (10-55, weighted).
+        offset_boundary_y: Vertical boundary for control points.
+                          If None, random (10-55, weighted).
 
     Returns:
         List of (x, y) coordinates forming the complete trajectory.

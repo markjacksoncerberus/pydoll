@@ -10,7 +10,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import random
-from typing import TYPE_CHECKING, Literal, Optional
+from typing import TYPE_CHECKING, Optional
 
 from pydoll.commands import InputCommands
 from pydoll.interactions.movement import (
@@ -74,12 +74,12 @@ class MouseAPI:
 
         Generates a smooth, human-like path from current position to target
         coordinates using bezier curves with randomized control points, distortion,
-        and easing functions. If humanize_mouse_movement is disabled, instantly 
+        and easing functions. If humanize_mouse_movement is disabled, instantly
         teleports to position.
 
         All trajectory parameters (knots, distortion, easing) are randomly selected
         per movement following HumanCursor best practices for maximum realism.
-        Timing between points varies based on distance to create natural 
+        Timing between points varies based on distance to create natural
         acceleration and deceleration.
 
         Args:
@@ -177,7 +177,8 @@ class MouseAPI:
             button: Mouse button to click.
             click_count: Number of clicks (1 for single, 2 for double).
             move_duration: Duration of movement to target (if x, y provided).
-                          If None and humanize_mouse_movement is enabled, uses random duration (0.3-0.7s).
+                          If None and humanize_mouse_movement is enabled,
+                          uses random duration (0.3-0.7s).
             hold_duration: Duration to hold button down before release.
 
         Example:
@@ -230,7 +231,8 @@ class MouseAPI:
             y: Target y coordinate (uses current position if None).
             button: Mouse button to click.
             move_duration: Duration of movement to target (if x, y provided).
-                          If None and humanize_mouse_movement is enabled, uses random duration (0.3-0.7s).
+                          If None and humanize_mouse_movement is enabled,
+                          uses random duration (0.3-0.7s).
 
         Example:
             await tab.mouse.double_click(500, 300)
@@ -260,7 +262,8 @@ class MouseAPI:
             x: Target x coordinate in CSS pixels.
             y: Target y coordinate in CSS pixels.
             move_duration: Duration of movement to target.
-                          If None and humanize_mouse_movement is enabled, uses random duration (0.3-0.7s).
+                          If None and humanize_mouse_movement is enabled,
+                          uses random duration (0.3-0.7s).
             hold_duration: Duration to hold button down before release.
 
         Example:
@@ -291,7 +294,8 @@ class MouseAPI:
             x: Target x coordinate in CSS pixels.
             y: Target y coordinate in CSS pixels.
             move_duration: Duration of movement to target.
-                          If None and humanize_mouse_movement is enabled, uses random duration (0.3-0.7s).
+                          If None and humanize_mouse_movement is enabled,
+                          uses random duration (0.3-0.7s).
             hold_duration: Duration to hold button down before release.
 
         Example:
@@ -322,7 +326,8 @@ class MouseAPI:
             x: Target x coordinate in CSS pixels.
             y: Target y coordinate in CSS pixels.
             move_duration: Duration of movement to target.
-                          If None and humanize_mouse_movement is enabled, uses random duration (0.3-0.7s).
+                          If None and humanize_mouse_movement is enabled,
+                          uses random duration (0.3-0.7s).
             hold_duration: Duration to hold button down before release.
 
         Example:
@@ -360,9 +365,11 @@ class MouseAPI:
             to_y: Ending y coordinate.
             button: Mouse button to use for dragging.
             move_to_start_duration: Duration to move to start position.
-                                   If None and humanize_mouse_movement is enabled, uses random duration (0.3-0.7s).
+                                   If None and humanize_mouse_movement is
+                                   enabled, uses random duration (0.3-0.7s).
             drag_duration: Duration of the drag movement.
-                          If None and humanize_mouse_movement is enabled, uses random duration (0.3-0.7s).
+                          If None and humanize_mouse_movement is enabled,
+                          uses random duration (0.3-0.7s).
 
         Example:
             await tab.mouse.drag(100, 200, 500, 400, drag_duration=1.0)
@@ -412,7 +419,9 @@ class MouseAPI:
         Example:
             await tab.mouse.scroll_wheel(delta_y=100)
         """
-        logger.info(f'Scrolling wheel at ({self._current_x}, {self._current_y}): dx={delta_x}, dy={delta_y}')
+        logger.info(
+            f'Scrolling wheel at ({self._current_x}, {self._current_y}): dx={delta_x}, dy={delta_y}'
+        )
 
         scroll_command = InputCommands.dispatch_mouse_event(
             type=MouseEventType.MOUSE_WHEEL,
@@ -491,16 +500,16 @@ class MouseAPI:
         for i in range(1, len(trajectory)):
             x1, y1 = trajectory[i - 1]
             x2, y2 = trajectory[i]
-            
+
             # Calculate delay based on segment distance relative to total distance
             segment_distance = calculate_distance(x1, y1, x2, y2)
             if total_distance > 0:
                 delay = (segment_distance / total_distance) * duration
             else:
                 delay = duration / max(len(trajectory) - 1, 1)
-            
+
             await asyncio.sleep(delay)
-            
+
             move_command = InputCommands.dispatch_mouse_event(
                 type=MouseEventType.MOUSE_MOVED,
                 x=x2,  # Keep float precision
