@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import random
 from typing import TYPE_CHECKING, Literal, Optional
 
 from pydoll.commands import InputCommands
@@ -22,6 +23,20 @@ if TYPE_CHECKING:
     from pydoll.browser.tab import Tab
 
 logger = logging.getLogger(__name__)
+
+
+def _generate_random_duration(min_duration: float = 0.7, max_duration: float = 2.0) -> float:
+    """
+    Generate randomized movement duration for natural variation.
+
+    Args:
+        min_duration: Minimum duration in seconds.
+        max_duration: Maximum duration in seconds.
+
+    Returns:
+        Random duration between min and max.
+    """
+    return random.uniform(min_duration, max_duration)
 
 
 class MouseAPI:
@@ -45,34 +60,37 @@ class MouseAPI:
         self._tab = tab
         self._current_x: float = 0.0
         self._current_y: float = 0.0
+        self._humanize: bool = getattr(tab._browser, 'humanize_mouse_movement', True)
 
     async def move_to(
         self,
         x: float,
         y: float,
-        duration: float = 0.5,
-        steps_per_second: int = 60,
-        knots_count: int = 2,
-        offset_boundary_x: float = 80.0,
-        offset_boundary_y: float = 80.0,
+        duration: Optional[float] = None,
+        steps_per_second: int = 100,
     ):
         """
         Move mouse cursor to absolute coordinates using bezier curve trajectory.
 
         Generates a smooth, human-like path from current position to target
-        coordinates using bezier curves with randomized control points.
+        coordinates using bezier curves with randomized control points, distortion,
+        and easing functions. If humanize_mouse_movement is disabled, instantly 
+        teleports to position.
+
+        All trajectory parameters (knots, distortion, easing) are randomly selected
+        per movement following HumanCursor best practices for maximum realism.
+        Timing between points varies based on distance to create natural 
+        acceleration and deceleration.
 
         Args:
             x: Target x coordinate in CSS pixels.
             y: Target y coordinate in CSS pixels.
-            duration: Movement duration in seconds.
+            duration: Movement duration in seconds. If None, uses random duration (0.7-2.0s).
             steps_per_second: Number of movement steps per second (affects smoothness).
-            knots_count: Number of bezier curve control points (affects curve complexity).
-            offset_boundary_x: Horizontal boundary offset for control point randomization.
-            offset_boundary_y: Vertical boundary offset for control point randomization.
 
         Example:
-            await tab.mouse.move_to(500, 300, duration=0.7)
+            await tab.mouse.move_to(500, 300)
+            await tab.mouse.move_to(500, 300, duration=1.5)
         """
         logger.info(f'Moving mouse to ({x}, {y}) from ({self._current_x}, {self._current_y})')
 
@@ -81,18 +99,25 @@ class MouseAPI:
             logger.debug('Target position too close to current position, skipping movement')
             return
 
+        if not self._humanize:
+            # Teleport mode: instant movement with single mouseMoved event
+            await self._teleport_to(x, y)
+            self._current_x = x
+            self._current_y = y
+            return
+
+        # Humanize mode: bezier curve trajectory with randomized parameters
+        if duration is None:
+            duration = _generate_random_duration()
+
         target_points = max(int(duration * steps_per_second), 2)
 
+        # Generate trajectory with all random parameters (HumanCursor approach)
         trajectory = generate_human_mouse_trajectory(
             from_point=(self._current_x, self._current_y),
             to_point=(x, y),
-            knots_count=knots_count,
-            distortion_mean=1.0,
-            distortion_stdev=1.0,
-            distortion_frequency=0.5,
             target_points=target_points,
-            offset_boundary_x=offset_boundary_x,
-            offset_boundary_y=offset_boundary_y,
+            # All other parameters will be randomly generated
         )
 
         await self._execute_trajectory(trajectory, duration)
@@ -104,9 +129,8 @@ class MouseAPI:
         self,
         delta_x: float,
         delta_y: float,
-        duration: float = 0.5,
+        duration: Optional[float] = None,
         steps_per_second: int = 60,
-        knots_count: int = 2,
     ):
         """
         Move mouse cursor by relative offset from current position.
@@ -114,11 +138,11 @@ class MouseAPI:
         Args:
             delta_x: Horizontal offset in CSS pixels.
             delta_y: Vertical offset in CSS pixels.
-            duration: Movement duration in seconds.
+            duration: Movement duration in seconds. If None, uses random duration (0.7-2.0s).
             steps_per_second: Number of movement steps per second.
-            knots_count: Number of bezier curve control points.
 
         Example:
+            await tab.mouse.move_by(100, -50)
             await tab.mouse.move_by(100, -50, duration=0.3)
         """
         target_x = self._current_x + delta_x
@@ -130,7 +154,6 @@ class MouseAPI:
             target_y,
             duration=duration,
             steps_per_second=steps_per_second,
-            knots_count=knots_count,
         )
 
     async def click(
@@ -139,7 +162,7 @@ class MouseAPI:
         y: Optional[float] = None,
         button: MouseButton = MouseButton.LEFT,
         click_count: int = 1,
-        move_duration: float = 0.5,
+        move_duration: Optional[float] = None,
         hold_duration: float = 0.1,
     ):
         """
@@ -154,6 +177,7 @@ class MouseAPI:
             button: Mouse button to click.
             click_count: Number of clicks (1 for single, 2 for double).
             move_duration: Duration of movement to target (if x, y provided).
+                          If None and humanize_mouse_movement is enabled, uses random duration (0.3-0.7s).
             hold_duration: Duration to hold button down before release.
 
         Example:
@@ -161,6 +185,9 @@ class MouseAPI:
             await tab.mouse.click(button=MouseButton.RIGHT)
         """
         if x is not None and y is not None:
+            # Use random duration if humanize enabled and no duration specified
+            if move_duration is None and self._humanize:
+                move_duration = _generate_random_duration()
             await self.move_to(x, y, duration=move_duration)
 
         logger.info(
@@ -170,16 +197,16 @@ class MouseAPI:
 
         press_command = InputCommands.dispatch_mouse_event(
             type=MouseEventType.MOUSE_PRESSED,
-            x=int(self._current_x),
-            y=int(self._current_y),
+            x=self._current_x,
+            y=self._current_y,
             button=button,
             click_count=click_count,
         )
 
         release_command = InputCommands.dispatch_mouse_event(
             type=MouseEventType.MOUSE_RELEASED,
-            x=int(self._current_x),
-            y=int(self._current_y),
+            x=self._current_x,
+            y=self._current_y,
             button=button,
             click_count=click_count,
         )
@@ -193,7 +220,7 @@ class MouseAPI:
         x: Optional[float] = None,
         y: Optional[float] = None,
         button: MouseButton = MouseButton.LEFT,
-        move_duration: float = 0.5,
+        move_duration: Optional[float] = None,
     ):
         """
         Double-click at specified coordinates or current position.
@@ -203,6 +230,7 @@ class MouseAPI:
             y: Target y coordinate (uses current position if None).
             button: Mouse button to click.
             move_duration: Duration of movement to target (if x, y provided).
+                          If None and humanize_mouse_movement is enabled, uses random duration (0.3-0.7s).
 
         Example:
             await tab.mouse.double_click(500, 300)
@@ -216,6 +244,99 @@ class MouseAPI:
             hold_duration=0.05,
         )
 
+    async def left_click(
+        self,
+        x: float,
+        y: float,
+        move_duration: Optional[float] = None,
+        hold_duration: float = 0.1,
+    ):
+        """
+        Left-click at specified coordinates.
+
+        Convenience method that moves to coordinates and performs left click.
+
+        Args:
+            x: Target x coordinate in CSS pixels.
+            y: Target y coordinate in CSS pixels.
+            move_duration: Duration of movement to target.
+                          If None and humanize_mouse_movement is enabled, uses random duration (0.3-0.7s).
+            hold_duration: Duration to hold button down before release.
+
+        Example:
+            await tab.mouse.left_click(500, 300)
+        """
+        await self.click(
+            x=x,
+            y=y,
+            button=MouseButton.LEFT,
+            click_count=1,
+            move_duration=move_duration,
+            hold_duration=hold_duration,
+        )
+
+    async def right_click(
+        self,
+        x: float,
+        y: float,
+        move_duration: Optional[float] = None,
+        hold_duration: float = 0.1,
+    ):
+        """
+        Right-click at specified coordinates.
+
+        Convenience method that moves to coordinates and performs right click.
+
+        Args:
+            x: Target x coordinate in CSS pixels.
+            y: Target y coordinate in CSS pixels.
+            move_duration: Duration of movement to target.
+                          If None and humanize_mouse_movement is enabled, uses random duration (0.3-0.7s).
+            hold_duration: Duration to hold button down before release.
+
+        Example:
+            await tab.mouse.right_click(500, 300)
+        """
+        await self.click(
+            x=x,
+            y=y,
+            button=MouseButton.RIGHT,
+            click_count=1,
+            move_duration=move_duration,
+            hold_duration=hold_duration,
+        )
+
+    async def middle_click(
+        self,
+        x: float,
+        y: float,
+        move_duration: Optional[float] = None,
+        hold_duration: float = 0.1,
+    ):
+        """
+        Middle-click at specified coordinates.
+
+        Convenience method that moves to coordinates and performs middle click.
+
+        Args:
+            x: Target x coordinate in CSS pixels.
+            y: Target y coordinate in CSS pixels.
+            move_duration: Duration of movement to target.
+                          If None and humanize_mouse_movement is enabled, uses random duration (0.3-0.7s).
+            hold_duration: Duration to hold button down before release.
+
+        Example:
+            await tab.mouse.middle_click(500, 300)
+        """
+        await self.click(
+            x=x,
+            y=y,
+            button=MouseButton.MIDDLE,
+            click_count=1,
+            move_duration=move_duration,
+            hold_duration=hold_duration,
+        )
+
     async def drag(
         self,
         from_x: float,
@@ -223,8 +344,8 @@ class MouseAPI:
         to_x: float,
         to_y: float,
         button: MouseButton = MouseButton.LEFT,
-        move_to_start_duration: float = 0.5,
-        drag_duration: float = 0.7,
+        move_to_start_duration: Optional[float] = None,
+        drag_duration: Optional[float] = None,
     ):
         """
         Perform drag and drop operation from one position to another.
@@ -239,19 +360,27 @@ class MouseAPI:
             to_y: Ending y coordinate.
             button: Mouse button to use for dragging.
             move_to_start_duration: Duration to move to start position.
+                                   If None and humanize_mouse_movement is enabled, uses random duration (0.3-0.7s).
             drag_duration: Duration of the drag movement.
+                          If None and humanize_mouse_movement is enabled, uses random duration (0.3-0.7s).
 
         Example:
             await tab.mouse.drag(100, 200, 500, 400, drag_duration=1.0)
         """
         logger.info(f'Drag operation: ({from_x}, {from_y}) -> ({to_x}, {to_y})')
 
+        # Use random durations if humanize enabled and no durations specified
+        if move_to_start_duration is None and self._humanize:
+            move_to_start_duration = _generate_random_duration()
+        if drag_duration is None and self._humanize:
+            drag_duration = _generate_random_duration()
+
         await self.move_to(from_x, from_y, duration=move_to_start_duration)
 
         press_command = InputCommands.dispatch_mouse_event(
             type=MouseEventType.MOUSE_PRESSED,
-            x=int(from_x),
-            y=int(from_y),
+            x=from_x,
+            y=from_y,
             button=button,
             click_count=1,
         )
@@ -261,8 +390,8 @@ class MouseAPI:
 
         release_command = InputCommands.dispatch_mouse_event(
             type=MouseEventType.MOUSE_RELEASED,
-            x=int(to_x),
-            y=int(to_y),
+            x=to_x,
+            y=to_y,
             button=button,
             click_count=1,
         )
@@ -287,8 +416,8 @@ class MouseAPI:
 
         scroll_command = InputCommands.dispatch_mouse_event(
             type=MouseEventType.MOUSE_WHEEL,
-            x=int(self._current_x),
-            y=int(self._current_y),
+            x=self._current_x,
+            y=self._current_y,
             delta_x=delta_x,
             delta_y=delta_y,
         )
@@ -330,6 +459,9 @@ class MouseAPI:
         """
         Execute a movement trajectory by dispatching mouse move events.
 
+        Uses non-uniform timing based on distance between consecutive points
+        to create smooth acceleration/deceleration matching the easing function.
+
         Args:
             trajectory: List of (x, y) coordinates to move through.
             duration: Total duration for the complete trajectory.
@@ -337,15 +469,56 @@ class MouseAPI:
         if not trajectory:
             return
 
-        step_delay = duration / max(len(trajectory) - 1, 1)
+        # Calculate total path distance
+        total_distance = 0.0
+        for i in range(len(trajectory) - 1):
+            x1, y1 = trajectory[i]
+            x2, y2 = trajectory[i + 1]
+            segment_distance = calculate_distance(x1, y1, x2, y2)
+            total_distance += segment_distance
 
-        for i, (x, y) in enumerate(trajectory):
+        # Dispatch first point immediately
+        if trajectory:
+            x, y = trajectory[0]
             move_command = InputCommands.dispatch_mouse_event(
                 type=MouseEventType.MOUSE_MOVED,
-                x=int(x),
-                y=int(y),
+                x=x,  # Keep float precision
+                y=y,
             )
             await self._tab._execute_command(move_command)
 
-            if i < len(trajectory) - 1:
-                await asyncio.sleep(step_delay)
+        # Execute remaining points with timing proportional to distance
+        for i in range(1, len(trajectory)):
+            x1, y1 = trajectory[i - 1]
+            x2, y2 = trajectory[i]
+            
+            # Calculate delay based on segment distance relative to total distance
+            segment_distance = calculate_distance(x1, y1, x2, y2)
+            if total_distance > 0:
+                delay = (segment_distance / total_distance) * duration
+            else:
+                delay = duration / max(len(trajectory) - 1, 1)
+            
+            await asyncio.sleep(delay)
+            
+            move_command = InputCommands.dispatch_mouse_event(
+                type=MouseEventType.MOUSE_MOVED,
+                x=x2,  # Keep float precision
+                y=y2,
+            )
+            await self._tab._execute_command(move_command)
+
+    async def _teleport_to(self, x: float, y: float):
+        """
+        Instantly move mouse to position without trajectory (teleport mode).
+
+        Args:
+            x: Target x coordinate in CSS pixels.
+            y: Target y coordinate in CSS pixels.
+        """
+        move_command = InputCommands.dispatch_mouse_event(
+            type=MouseEventType.MOUSE_MOVED,
+            x=x,  # Keep float precision
+            y=y,
+        )
+        await self._tab._execute_command(move_command)

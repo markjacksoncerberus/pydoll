@@ -80,7 +80,7 @@ class TestMouseAPICommandSequencing:
     @pytest.mark.asyncio
     async def test_move_to_command_sequence(self, tab_with_mouse, mock_connection_handler):
         """Test that move_to generates proper sequence of mouseMoved commands."""
-        await tab_with_mouse.mouse.move_to(100.0, 100.0, duration=0.05, steps_per_second=20)
+        await tab_with_mouse.mouse.move_to(100.0, 100.0, duration=0.05)
 
         calls = mock_connection_handler.execute_command.call_args_list
         assert len(calls) > 0

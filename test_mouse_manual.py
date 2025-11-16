@@ -8,7 +8,7 @@ async def main():
     async with Chrome() as browser:
         tab = await browser.start()
         
-        await tab.go_to('https://cps-check.com/mouse-acceleration')
+        await tab.go_to('https://webutility.io/mouse-tester')
         await asyncio.sleep(3)
         
         print("Moving to point 1: (200, 200)")

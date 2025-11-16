@@ -71,20 +71,123 @@ def _bernstein_polynomial(points: list[tuple[float, float]]) -> Callable[[float]
     return bernstein
 
 
-def _easing_out_quad(t: float) -> float:
-    """
-    Easing function with quadratic deceleration.
+def _ease_out_quad(t: float) -> float:
+    """Quadratic easing out - starts fast and decelerates."""
+    return -t * (t - 2)
 
-    Starts fast and slows down towards the end, mimicking natural
-    human movement deceleration.
 
-    Args:
-        t: Progress value in range [0, 1].
+def _ease_out_cubic(t: float) -> float:
+    """Cubic easing out - stronger deceleration."""
+    t -= 1
+    return t * t * t + 1
 
-    Returns:
-        Eased value in range [0, 1].
-    """
-    return 1 - (1 - t) * (1 - t)
+
+def _ease_out_quart(t: float) -> float:
+    """Quartic easing out - very strong deceleration."""
+    t -= 1
+    return -(t * t * t * t - 1)
+
+
+def _ease_out_quint(t: float) -> float:
+    """Quintic easing out - extremely strong deceleration."""
+    t -= 1
+    return t * t * t * t * t + 1
+
+
+def _ease_out_sine(t: float) -> float:
+    """Sinusoidal easing out - smooth deceleration."""
+    return math.sin(t * math.pi / 2)
+
+
+def _ease_out_expo(t: float) -> float:
+    """Exponential easing out - rapid initial movement, slow end."""
+    return 1 - math.pow(2, -10 * t) if t != 1 else 1
+
+
+def _ease_out_circ(t: float) -> float:
+    """Circular easing out - decelerating circular curve."""
+    t -= 1
+    return math.sqrt(1 - t * t)
+
+
+def _ease_in_out_quad(t: float) -> float:
+    """Quadratic easing in/out - accelerate then decelerate."""
+    if t < 0.5:
+        return 2 * t * t
+    return -1 + (4 - 2 * t) * t
+
+
+def _ease_in_out_cubic(t: float) -> float:
+    """Cubic easing in/out - stronger acceleration/deceleration."""
+    if t < 0.5:
+        return 4 * t * t * t
+    t = 2 * t - 2
+    return (t * t * t + 2) / 2
+
+
+def _ease_in_out_quart(t: float) -> float:
+    """Quartic easing in/out - very strong acceleration/deceleration."""
+    if t < 0.5:
+        return 8 * t * t * t * t
+    t -= 1
+    return -(8 * t * t * t * t - 1)
+
+
+def _ease_in_out_quint(t: float) -> float:
+    """Quintic easing in/out - extremely strong acceleration/deceleration."""
+    if t < 0.5:
+        return 16 * t * t * t * t * t
+    t = 2 * t - 2
+    return (t * t * t * t * t + 2) / 2
+
+
+def _ease_in_out_sine(t: float) -> float:
+    """Sinusoidal easing in/out - smooth acceleration/deceleration."""
+    return -(math.cos(math.pi * t) - 1) / 2
+
+
+def _ease_in_out_expo(t: float) -> float:
+    """Exponential easing in/out - exponential acceleration/deceleration."""
+    if t == 0:
+        return 0
+    if t == 1:
+        return 1
+    if t < 0.5:
+        return math.pow(2, 20 * t - 10) / 2
+    return (2 - math.pow(2, -20 * t + 10)) / 2
+
+
+def _ease_in_out_circ(t: float) -> float:
+    """Circular easing in/out - circular acceleration/deceleration."""
+    if t < 0.5:
+        return (1 - math.sqrt(1 - 4 * t * t)) / 2
+    t = -2 * t + 2
+    return (math.sqrt(1 - t * t) + 1) / 2
+
+
+def _linear(t: float) -> float:
+    """Linear easing - constant speed."""
+    return t
+
+
+def _get_random_easing_function() -> Callable[[float], float]:
+    """Select random easing function with weighted probabilities."""
+    easing_functions = [
+        _ease_out_expo,
+        _ease_in_out_quint,
+        _ease_in_out_sine,
+        _ease_in_out_quart,
+        _ease_in_out_expo,
+        _ease_in_out_cubic,
+        _ease_in_out_circ,
+        _linear,
+        _ease_out_sine,
+        _ease_out_quart,
+        _ease_out_quint,
+        _ease_out_cubic,
+        _ease_out_circ,
+    ]
+    return random.choice(easing_functions)
 
 
 def calculate_distance(x1: float, y1: float, x2: float, y2: float) -> float:
@@ -218,7 +321,7 @@ def apply_distortion(
 def apply_easing(
     points: list[tuple[float, float]],
     target_points: int,
-    easing_func: Callable[[float], float] = _easing_out_quad,
+    easing_func: Callable[[float], float] | None = None,
 ) -> list[tuple[float, float]]:
     """
     Apply easing function to redistribute points along curve.
@@ -230,12 +333,16 @@ def apply_easing(
         points: Original curve points.
         target_points: Desired number of output points.
         easing_func: Easing function that maps [0, 1] to [0, 1].
+                    If None, randomly selects from available functions.
 
     Returns:
         Redistributed points with easing applied.
     """
     if target_points < 2:
         target_points = 2
+
+    if easing_func is None:
+        easing_func = _get_random_easing_function()
 
     result: list[tuple[float, float]] = []
     for i in range(target_points):
@@ -247,37 +354,81 @@ def apply_easing(
     return result
 
 
+def _get_random_knots_count() -> int:
+    """Get random knots count with weighted probability distribution."""
+    knots_options = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    weights = [0.15, 0.36, 0.17, 0.12, 0.08, 0.04, 0.03, 0.02, 0.015, 0.005]
+    return random.choices(knots_options, weights=weights)[0]
+
+
+def _get_random_target_points() -> int:
+    """Get random target points count with weighted probability distribution."""
+    ranges = [range(35, 45), range(45, 60), range(60, 80)]
+    weights = [0.53, 0.32, 0.15]
+    selected_range = random.choices(ranges, weights=weights)[0]
+    return random.choice(selected_range)
+
+
+def _get_random_offset_boundary() -> tuple[float, float]:
+    """Get random offset boundaries with weighted probability distribution."""
+    ranges = [range(10, 25), range(25, 40), range(40, 55)]
+    weights = [0.2, 0.65, 0.15]
+    x_range = random.choices(ranges, weights=weights)[0]
+    y_range = random.choices(ranges, weights=weights)[0]
+    return float(random.choice(x_range)), float(random.choice(y_range))
+
+
+def _get_random_distortion_params() -> tuple[float, float, float]:
+    """Get random distortion parameters."""
+    mean = random.randint(80, 110) / 100.0
+    stdev = random.randint(85, 110) / 100.0
+    frequency = random.randint(25, 70) / 100.0
+    return mean, stdev, frequency
+
+
 def generate_human_mouse_trajectory(
     from_point: tuple[float, float],
     to_point: tuple[float, float],
-    knots_count: int = 2,
-    distortion_mean: float = 1.0,
-    distortion_stdev: float = 1.0,
-    distortion_frequency: float = 0.5,
-    target_points: int = 100,
-    offset_boundary_x: float = 80.0,
-    offset_boundary_y: float = 80.0,
+    knots_count: int | None = None,
+    distortion_mean: float | None = None,
+    distortion_stdev: float | None = None,
+    distortion_frequency: float | None = None,
+    target_points: int | None = None,
+    offset_boundary_x: float | None = None,
+    offset_boundary_y: float | None = None,
 ) -> list[tuple[float, float]]:
     """
     Generate a complete human-like mouse movement trajectory.
 
     Creates a bezier curve path from start to end point with randomized
     control points, distortion, and easing to simulate natural cursor movement.
+    All parameters are optional - if not provided, realistic random values
+    are generated following HumanCursor best practices.
 
     Args:
         from_point: Starting coordinates (x, y).
         to_point: Ending coordinates (x, y).
-        knots_count: Number of internal control points for curve complexity.
-        distortion_mean: Mean offset for random distortion.
-        distortion_stdev: Standard deviation for random distortion.
-        distortion_frequency: Probability of applying distortion (0-1).
-        target_points: Number of points in final trajectory.
-        offset_boundary_x: Horizontal boundary for control point generation.
-        offset_boundary_y: Vertical boundary for control point generation.
+        knots_count: Number of internal control points. If None, randomly selected (1-10, weighted).
+        distortion_mean: Mean offset for random distortion. If None, random (0.8-1.1).
+        distortion_stdev: Standard deviation for distortion. If None, random (0.85-1.1).
+        distortion_frequency: Probability of distortion (0-1). If None, random (0.25-0.7).
+        target_points: Number of points in final trajectory. If None, random (35-80, weighted).
+        offset_boundary_x: Horizontal boundary for control points. If None, random (20-100, weighted).
+        offset_boundary_y: Vertical boundary for control points. If None, random (20-100, weighted).
 
     Returns:
         List of (x, y) coordinates forming the complete trajectory.
     """
+    # Use random parameters if not specified (HumanCursor approach)
+    if knots_count is None:
+        knots_count = _get_random_knots_count()
+    if target_points is None:
+        target_points = _get_random_target_points()
+    if offset_boundary_x is None or offset_boundary_y is None:
+        offset_boundary_x, offset_boundary_y = _get_random_offset_boundary()
+    if distortion_mean is None or distortion_stdev is None or distortion_frequency is None:
+        distortion_mean, distortion_stdev, distortion_frequency = _get_random_distortion_params()
+
     internal_knots = generate_internal_knots(
         from_point, to_point, knots_count, offset_boundary_x, offset_boundary_y
     )
@@ -286,6 +437,6 @@ def generate_human_mouse_trajectory(
 
     points = apply_distortion(points, distortion_mean, distortion_stdev, distortion_frequency)
 
-    points = apply_easing(points, target_points)
+    points = apply_easing(points, target_points, easing_func=None)  # Random easing
 
     return points

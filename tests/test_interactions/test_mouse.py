@@ -186,7 +186,7 @@ class TestMouseAPIMoveTo:
     @pytest.mark.asyncio
     async def test_move_to_basic(self, mouse_api, mock_tab):
         """Test basic move_to operation."""
-        await mouse_api.move_to(100.0, 200.0, duration=0.1, steps_per_second=10)
+        await mouse_api.move_to(100.0, 200.0, duration=0.1)
 
         assert mock_tab._execute_command.called
         assert mouse_api._current_x == 100.0
@@ -195,7 +195,7 @@ class TestMouseAPIMoveTo:
     @pytest.mark.asyncio
     async def test_move_to_generates_mouse_moved_events(self, mouse_api, mock_tab):
         """Test that move_to generates mouseMoved CDP events."""
-        await mouse_api.move_to(50.0, 50.0, duration=0.05, steps_per_second=20)
+        await mouse_api.move_to(50.0, 50.0, duration=0.05)
 
         calls = mock_tab._execute_command.call_args_list
         assert len(calls) > 0
