@@ -22,6 +22,24 @@ class ScrollPosition(str, Enum):
     RIGHT = 'right'
 
 
+class MouseMovementDefaults:
+    """
+    Default configuration values for mouse movement behavior.
+
+    These values control the characteristics of bezier curve-based
+    mouse movement, affecting smoothness, naturalness, and performance.
+    """
+
+    DURATION = 0.5
+    STEPS_PER_SECOND = 60
+    KNOTS_COUNT = 2
+    OFFSET_BOUNDARY_X = 80.0
+    OFFSET_BOUNDARY_Y = 80.0
+    DISTORTION_MEAN = 1.0
+    DISTORTION_STDEV = 1.0
+    DISTORTION_FREQUENCY = 0.5
+
+
 class Scripts:
     ELEMENT_VISIBLE = """
     function() {
