@@ -22,6 +22,7 @@ class Chrome(Browser):
         self,
         options: Optional[ChromiumOptions] = None,
         connection_port: Optional[int] = None,
+        humanize_mouse_movement: bool = True,
     ):
         """
         Initialize Chrome browser instance.
@@ -29,9 +30,10 @@ class Chrome(Browser):
         Args:
             options: Chrome configuration options (default if None).
             connection_port: CDP WebSocket port (random if None).
+            humanize_mouse_movement: Enable natural mouse movement curves (default: True).
         """
         options_manager = ChromiumOptionsManager(options)
-        super().__init__(options_manager, connection_port)
+        super().__init__(options_manager, connection_port, humanize_mouse_movement)
 
     @staticmethod
     def _get_default_binary_location():

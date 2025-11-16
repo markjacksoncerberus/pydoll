@@ -51,7 +51,7 @@ from pydoll.exceptions import (
     TopLevelTargetRequired,
     WaitElementTimeout,
 )
-from pydoll.interactions import KeyboardAPI, ScrollAPI
+from pydoll.interactions import KeyboardAPI, MouseAPI, ScrollAPI
 from pydoll.protocol.browser.types import DownloadBehavior, DownloadProgressState
 from pydoll.protocol.page.events import PageEvent
 from pydoll.protocol.page.types import ScreenshotFormat
@@ -141,6 +141,7 @@ class Tab(FindElementsMixin):
         self._request: Optional[Request] = None
         self._scroll: Optional[ScrollAPI] = None
         self._keyboard: Optional[KeyboardAPI] = None
+        self._mouse: Optional[MouseAPI] = None
         logger.debug(
             (
                 f'Tab initialized: target_id={self._target_id}, '
@@ -209,6 +210,18 @@ class Tab(FindElementsMixin):
         if self._keyboard is None:
             self._keyboard = KeyboardAPI(self)
         return self._keyboard
+
+    @property
+    def mouse(self) -> MouseAPI:
+        """
+        Get the mouse API for controlling mouse movement and interactions.
+
+        Returns:
+            MouseAPI: An instance of the MouseAPI class for mouse operations.
+        """
+        if self._mouse is None:
+            self._mouse = MouseAPI(self)
+        return self._mouse
 
     @property
     def intercept_file_chooser_dialog_enabled(self) -> bool:

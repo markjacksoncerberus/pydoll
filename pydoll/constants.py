@@ -22,6 +22,13 @@ class ScrollPosition(str, Enum):
     RIGHT = 'right'
 
 
+class MouseMovement:
+    """Configuration constants for humanized mouse movement."""
+
+    STEPS_PER_SECOND = 60  # Number of trajectory points per second for smooth animation
+    EASING_MIDPOINT = 0.5  # Transition point for ease-in-out functions
+
+
 class Scripts:
     ELEMENT_VISIBLE = """
     function() {

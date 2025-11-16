@@ -83,6 +83,7 @@ class Browser(ABC):  # noqa: PLR0904
         self,
         options_manager: BrowserOptionsManager,
         connection_port: Optional[int] = None,
+        humanize_mouse_movement: bool = True,
     ):
         """
         Initialize browser instance with configuration.
@@ -91,6 +92,9 @@ class Browser(ABC):  # noqa: PLR0904
             options_manager: Manages browser options initialization and defaults.
                 Must implement initialize_options() and add_default_arguments().
             connection_port: CDP WebSocket port. Random port (9223-9322) if None.
+            humanize_mouse_movement: Enable bezier curve mouse movement (default: True).
+                When True, mouse movements use natural curved paths with randomized duration.
+                When False, mouse instantly teleports to target position.
 
         Note:
             Call start() to actually launch the browser.
@@ -106,6 +110,7 @@ class Browser(ABC):  # noqa: PLR0904
         self._backup_preferences_dir = ''
         self._tabs_opened: dict[str, Tab] = {}
         self._context_proxy_auth: dict[str, tuple[str, str]] = {}
+        self.humanize_mouse_movement = humanize_mouse_movement
         logger.debug(
             f'Browser initialized: port={self._connection_port}, '
             f'headless={getattr(self.options, "headless", None)}'
