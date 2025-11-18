@@ -64,11 +64,48 @@ jobs:
           git push
 
 
-  release:
-    name: Release
+  build:
+    name: Build Package
     needs: version-pyproject
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.version-pyproject.outputs.version }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install Poetry
+        run: |
+          curl -sSL https://install.python-poetry.org | python3 -
+          export PATH="$HOME/.local/bin:$PATH"
+
+      - name: Build package
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
+          poetry build
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  release:
+    name: Release
+    needs: [version-pyproject, build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
@@ -76,5 +113,8 @@ jobs:
           prerelease: false
           generate_release_notes: true
           tag_name: ${{ needs.version-pyproject.outputs.version }}
+          files: |
+            dist/*.whl
+            dist/*.tar.gz
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
